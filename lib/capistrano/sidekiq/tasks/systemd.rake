@@ -26,12 +26,6 @@ namespace :load do
   end
 end
 
-namespace :deploy do
-  before :starting, :check_sidekiq_hooks do
-    invoke 'sidekiq:add_default_hooks' if fetch(:sidekiq_default_hooks)
-  end
-end
-
 after 'deploy:starting',  'sidekiq:quiet'
 after 'deploy:updated',   'sidekiq:stop'
 after 'deploy:published', 'sidekiq:start'
