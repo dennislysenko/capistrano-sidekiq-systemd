@@ -32,14 +32,12 @@ namespace :deploy do
   end
 end
 
-namespace :sidekiq do
-  task :add_default_hooks do
-    after 'deploy:starting',  'sidekiq:quiet'
-    after 'deploy:updated',   'sidekiq:stop'
-    after 'deploy:published', 'sidekiq:start'
-    after 'deploy:failed', 'sidekiq:restart'
-  end
+after 'deploy:starting',  'sidekiq:quiet'
+after 'deploy:updated',   'sidekiq:stop'
+after 'deploy:published', 'sidekiq:start'
+after 'deploy:failed', 'sidekiq:restart'
 
+namespace :sidekiq do
   desc 'Quiet sidekiq (stop fetching new tasks from Redis)'
   task :quiet do
     on roles fetch(:sidekiq_roles) do |server|
