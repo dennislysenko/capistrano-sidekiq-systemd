@@ -42,8 +42,9 @@ namespace :sidekiq do
 
   desc 'Quiet sidekiq (stop fetching new tasks from Redis)'
   task :quiet do
-    info "sidekiq_roles: #{fetch(:sidekiq_roles)}"
     on roles fetch(:sidekiq_roles) do |role|
+      info "sidekiq_roles: #{fetch(:sidekiq_roles)}"
+
       switch_user(role) do
         sidekiq_options_per_process_for_role(role).each_index do |index|
           systemctl(command: 'reload', service_unit_name: service_unit_name(index), raise_on_non_zero_exit: false)
