@@ -44,7 +44,7 @@ namespace :sidekiq do
   task :quiet do
     on roles fetch(:sidekiq_roles) do |role|
       switch_user(role) do
-        sidekiq_options_per_process.each_index do |index|
+        sidekiq_options_per_process_for_role(role).each_index do |index|
           systemctl(command: 'reload', service_unit_name: service_unit_name(index), raise_on_non_zero_exit: false)
         end
       end
@@ -55,7 +55,7 @@ namespace :sidekiq do
   task :stop do
     on roles fetch(:sidekiq_roles) do |role|
       switch_user(role) do
-        sidekiq_options_per_process.each_index do |index|
+        sidekiq_options_per_process_for_role(role).each_index do |index|
           systemctl(command: 'stop', service_unit_name: service_unit_name(index))
         end
       end
@@ -66,7 +66,7 @@ namespace :sidekiq do
   task :start do
     on roles fetch(:sidekiq_roles) do |role|
       switch_user(role) do
-        sidekiq_options_per_process.each_index do |index|
+        sidekiq_options_per_process_for_role(role).each_index do |index|
           systemctl(command: 'start', service_unit_name: service_unit_name(index))
         end
       end
@@ -84,7 +84,7 @@ namespace :sidekiq do
     on roles fetch(:sidekiq_roles) do |role|
       switch_user(role) do
         create_systemd_template(role)
-        sidekiq_options_per_process.each_index do |index|
+        sidekiq_options_per_process_for_role(role).each_index do |index|
           systemctl(command: 'enable', service_unit_name: service_unit_name(index))
         end
       end
@@ -95,7 +95,7 @@ namespace :sidekiq do
   task :uninstall do
     on roles fetch(:sidekiq_roles) do |role|
       switch_user(role) do
-        sidekiq_options_per_process.each_index do |index|
+        sidekiq_options_per_process_for_role(role).each_index do |index|
           systemctl(command: 'disable', service_unit_name: service_unit_name(index))
           execute :rm, File.join(fetch(:service_unit_path, fetch_systemd_unit_path(capture(:pwd))), service_unit_name(index))
         end
@@ -111,7 +111,7 @@ namespace :sidekiq do
     if fetch(:sidekiq_service_unit_user) == :user
       execute :mkdir, "-p", systemd_path
     end
-    sidekiq_options_per_process.each_index do |index|
+    sidekiq_options_per_process_for_role(role).each_index do |index|
       upload_template(data: StringIO.new(ERB.new(template).result(binding)),
         systemd_path: systemd_path, service_unit_name: service_unit_name(index)
       )
@@ -163,6 +163,14 @@ namespace :sidekiq do
 
   def sidekiq_options_per_process
     fetch(:sidekiq_options_per_process) || [nil]
+  end
+
+  def sidekiq_options_per_process_for_role(role)
+    sidekiq_options_per_process.take(sidekiq_processes_for_role(role))
+  end
+
+  def sidekiq_processes_for_role(role)
+    fetch(:"#{role}_processes") || fetch(:sidekiq_processes) || sidekiq_options_per_process.count
   end
 
   def service_unit_name(index)
