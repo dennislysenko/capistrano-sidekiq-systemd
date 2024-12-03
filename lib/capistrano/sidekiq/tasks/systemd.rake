@@ -43,11 +43,8 @@ namespace :sidekiq do
   desc 'Quiet sidekiq (stop fetching new tasks from Redis)'
   task :quiet do
     on roles fetch(:sidekiq_roles) do |server|
-      info "sidekiq_roles: #{fetch(:sidekiq_roles)} #{server} #{server.roles.to_a.join(' ')}"
-
       switch_user(server) do
         relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
-        info "relevant_role: #{relevant_role}"
         sidekiq_options_per_process_for_role(relevant_role).each_index do |index|
           systemctl(command: 'reload', service_unit_name: service_unit_name(index), raise_on_non_zero_exit: false)
         end
@@ -57,9 +54,10 @@ namespace :sidekiq do
 
   desc 'Stop sidekiq (graceful shutdown within timeout, put unfinished tasks back to Redis)'
   task :stop do
-    on roles fetch(:sidekiq_roles) do |role|
-      switch_user(role) do
-        sidekiq_options_per_process_for_role(role).each_index do |index|
+    on roles fetch(:sidekiq_roles) do |server|
+      switch_user(server) do
+        relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
+        sidekiq_options_per_process_for_role(relevant_role).each_index do |index|
           systemctl(command: 'stop', service_unit_name: service_unit_name(index))
         end
       end
@@ -68,9 +66,10 @@ namespace :sidekiq do
 
   desc 'Start sidekiq'
   task :start do
-    on roles fetch(:sidekiq_roles) do |role|
-      switch_user(role) do
-        sidekiq_options_per_process_for_role(role).each_index do |index|
+    on roles fetch(:sidekiq_roles) do |server|
+      switch_user(server) do
+        relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
+        sidekiq_options_per_process_for_role(relevant_role).each_index do |index|
           systemctl(command: 'start', service_unit_name: service_unit_name(index))
         end
       end
@@ -85,10 +84,11 @@ namespace :sidekiq do
 
   desc 'Generate and upload .service files'
   task :install do
-    on roles fetch(:sidekiq_roles) do |role|
-      switch_user(role) do
-        create_systemd_template(role)
-        sidekiq_options_per_process_for_role(role).each_index do |index|
+    on roles fetch(:sidekiq_roles) do |server|
+      switch_user(server) do
+        relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
+        create_systemd_template(server)
+        sidekiq_options_per_process_for_role(relevant_role).each_index do |index|
           systemctl(command: 'enable', service_unit_name: service_unit_name(index))
         end
       end
@@ -97,9 +97,10 @@ namespace :sidekiq do
 
   desc 'Uninstall .service files'
   task :uninstall do
-    on roles fetch(:sidekiq_roles) do |role|
-      switch_user(role) do
-        sidekiq_options_per_process_for_role(role).each_index do |index|
+    on roles fetch(:sidekiq_roles) do |server|
+      switch_user(server) do
+        relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
+        sidekiq_options_per_process_for_role(relevant_role).each_index do |index|
           systemctl(command: 'disable', service_unit_name: service_unit_name(index))
           execute :rm, File.join(fetch(:service_unit_path, fetch_systemd_unit_path(capture(:pwd))), service_unit_name(index))
         end
@@ -107,7 +108,7 @@ namespace :sidekiq do
     end
   end
 
-  def create_systemd_template(role)
+  def create_systemd_template(server)
     template = File.read(File.expand_path('../../../../generators/capistrano/sidekiq/systemd/templates/sidekiq.service.capistrano.erb', __FILE__))
     home_dir = capture :pwd
     systemd_path = fetch(:service_unit_path, fetch_systemd_unit_path(home_dir))
@@ -115,7 +116,8 @@ namespace :sidekiq do
     if fetch(:sidekiq_service_unit_user) == :user
       execute :mkdir, "-p", systemd_path
     end
-    sidekiq_options_per_process_for_role(role).each_index do |index|
+    relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
+    sidekiq_options_per_process_for_role(relevant_role).each_index do |index|
       upload_template(data: StringIO.new(ERB.new(template).result(binding)),
         systemd_path: systemd_path, service_unit_name: service_unit_name(index)
       )
