@@ -166,7 +166,7 @@ namespace :sidekiq do
   end
 
   def sidekiq_options_per_process_for_role(role)
-    info "sidekiq_options_per_process_for_role: #{sidekiq_processes_for_role(role)}"
+    info "sidekiq_options_per_process_for_role #{role}: #{sidekiq_processes_for_role(role)}"
     sidekiq_options_per_process.take(sidekiq_processes_for_role(role))
   end
 
