@@ -43,7 +43,7 @@ namespace :sidekiq do
   desc 'Quiet sidekiq (stop fetching new tasks from Redis)'
   task :quiet do
     on roles fetch(:sidekiq_roles) do |server|
-      info "sidekiq_roles: #{fetch(:sidekiq_roles)} #{role} #{role.roles.to_a.join(' ')}"
+      info "sidekiq_roles: #{fetch(:sidekiq_roles)} #{server} #{server.roles.to_a.join(' ')}"
 
       switch_user(server) do
         relevant_role = server.roles.detect { |role| fetch(:sidekiq_roles).include?(role) }
